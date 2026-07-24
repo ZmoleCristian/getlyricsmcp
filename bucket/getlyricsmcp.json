@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v0.1.0/getlyricsmcp-x86_64-pc-windows-msvc.zip",
-      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      "hash": "c11d5c6176b8fc05712c16b1de23110cda540c5c2bbf38f59cf3c4a86480b48b"
     }
   },
   "bin": "getlyricsmcp.exe",

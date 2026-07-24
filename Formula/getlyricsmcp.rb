@@ -7,14 +7,14 @@ class Getlyricsmcp < Formula
   on_macos do
     on_arm do
       url "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v0.1.0/getlyricsmcp-aarch64-apple-darwin.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "f19962d1dc2be5a4e001e028f459d8b15f5f1391fefce0f86c3a1a8da13fda38"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v0.1.0/getlyricsmcp-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "46752b83c17b32d3abb2688fd68919bb1cf7ac906e012636c0bfda116db02609"
     end
   end
 
