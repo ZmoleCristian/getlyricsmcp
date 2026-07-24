@@ -1,0 +1,144 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: package (unix)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          STAGE="getlyricsmcp-${{ matrix.target }}"
+          mkdir -p "$STAGE"
+          cp "target/${{ matrix.target }}/release/getlyricsmcp" "$STAGE/"
+          strip "$STAGE/getlyricsmcp" || true
+          cp LICENSE README.md "$STAGE/"
+          mkdir -p "$STAGE/man" && cp man/getlyricsmcp.1 "$STAGE/man/"
+          tar czf "$STAGE.tar.gz" "$STAGE"
+          shasum -a 256 "$STAGE.tar.gz" > "$STAGE.tar.gz.sha256"
+
+      - name: package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "getlyricsmcp-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/getlyricsmcp.exe" "$stage/"
+          Copy-Item LICENSE,README.md "$stage/"
+          Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip"
+          $hash = (Get-FileHash "$stage.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $stage.zip" | Out-File -Encoding ascii "$stage.zip.sha256"
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: getlyricsmcp-${{ matrix.target }}
+          path: |
+            getlyricsmcp-${{ matrix.target }}.tar.gz
+            getlyricsmcp-${{ matrix.target }}.tar.gz.sha256
+            getlyricsmcp-${{ matrix.target }}.zip
+            getlyricsmcp-${{ matrix.target }}.zip.sha256
+          if-no-files-found: ignore
+
+  release:
+    name: github release + scoop/brew bump
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: collect release files
+        id: vars
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} release/ \;
+          ls -la release/
+          VERSION="${GITHUB_REF_NAME#v}"
+          WIN_HASH=$(awk '{print $1}' release/getlyricsmcp-x86_64-pc-windows-msvc.zip.sha256)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "win_hash=$WIN_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: create github release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+
+      - name: bump scoop manifest
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.vars.outputs.version }}"
+          WIN_HASH="${{ steps.vars.outputs.win_hash }}"
+          jq --arg v "$VERSION" --arg h "$WIN_HASH" \
+             '.version = $v
+              | .architecture."64bit".hash = $h
+              | .architecture."64bit".url = "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v\($v)/getlyricsmcp-x86_64-pc-windows-msvc.zip"' \
+             bucket/getlyricsmcp.json > bucket/getlyricsmcp.json.tmp
+          mv bucket/getlyricsmcp.json.tmp bucket/getlyricsmcp.json
+
+      - name: bump homebrew formula
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.vars.outputs.version }}"
+          MAC_HASH=$(awk '{print $1}' release/getlyricsmcp-aarch64-apple-darwin.tar.gz.sha256)
+          LINUX_HASH=$(awk '{print $1}' release/getlyricsmcp-x86_64-unknown-linux-gnu.tar.gz.sha256)
+          sed -i 's|^  version ".*"|  version "'"$VERSION"'"|' Formula/getlyricsmcp.rb
+          sed -i "s|releases/download/v[0-9][0-9.]*|releases/download/v$VERSION|g" Formula/getlyricsmcp.rb
+          sed -i "/aarch64-apple-darwin\.tar\.gz/{n; s|sha256 \"[a-f0-9]*\"|sha256 \"$MAC_HASH\"|;}" Formula/getlyricsmcp.rb
+          sed -i "/x86_64-unknown-linux-gnu\.tar\.gz/{n; s|sha256 \"[a-f0-9]*\"|sha256 \"$LINUX_HASH\"|;}" Formula/getlyricsmcp.rb
+
+      - name: commit + push manifest bumps
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/getlyricsmcp.json Formula/getlyricsmcp.rb
+          if git diff --staged --quiet; then
+            echo "no manifest changes"
+          else
+            git commit -m "scoop+brew: bump to ${GITHUB_REF_NAME}"
+            git push origin HEAD:master
+          fi

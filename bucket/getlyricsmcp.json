@@ -1,0 +1,34 @@
+{
+  "version": "0.1.0",
+  "description": "MCP server that finds and fetches song lyrics. No API keys — it guesses each site's URL from artist+title.",
+  "homepage": "https://github.com/ZmoleCristian/getlyricsmcp",
+  "license": "0BSD",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v0.1.0/getlyricsmcp-x86_64-pc-windows-msvc.zip",
+      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "bin": "getlyricsmcp.exe",
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/ZmoleCristian/getlyricsmcp/releases/download/v$version/getlyricsmcp-x86_64-pc-windows-msvc.zip"
+      }
+    }
+  },
+  "notes": [
+    "######################################################################",
+    "#                                                                    #",
+    "#  getlyricsmcp installed                                            #",
+    "#                                                                    #",
+    "#  Register the MCP server with Claude Code:                         #",
+    "#      claude mcp add getlyricsmcp -- getlyricsmcp                   #",
+    "#      claude mcp add -s user getlyricsmcp -- getlyricsmcp           #",
+    "#                                                                    #",
+    "#  Other clients: stdio transport, no arguments.                     #",
+    "#                                                                    #",
+    "######################################################################"
+  ]
+}

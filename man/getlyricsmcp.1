@@ -1,0 +1,80 @@
+.\" Man page for getlyricsmcp (MCP server for song lyrics)
+.\" Copyright (c) 2026 Zmole Cristian. License: 0BSD.
+.TH GETLYRICSMCP 1 "July 2026" "getlyricsmcp 0.1.0" "User Commands"
+.SH NAME
+getlyricsmcp \- MCP server that finds and fetches song lyrics
+.SH SYNOPSIS
+.B getlyricsmcp
+.RB [ \-V | \-\-version ]
+.RB [ \-h | \-\-help ]
+.SH DESCRIPTION
+.B getlyricsmcp
+is a Model Context Protocol server speaking the stdio transport. It takes no
+arguments and is meant to be spawned by an MCP client, not run interactively.
+Run by hand it will simply wait for JSON-RPC on standard input.
+.PP
+It exposes two tools. There is no search API behind either of them and no API key
+is required anywhere: the song-page URL for each source is constructed from the
+given artist and title, requested, and kept if it resolves.
+.SH TOOLS
+.TP
+.BI search_lyrics( artist , title )
+Probes every source in parallel and returns the candidates that resolved, sorted
+most-reliable-first. Each hit carries an
+.I id
+to pass to
+.BR get_lyrics .
+Sources known to answer 200 with an unrelated page instead of 404ing have their
+page title verified, and mismatches are dropped before the hit list is returned.
+.TP
+.BI get_lyrics( id )
+Fetches and parses the full lyrics text for one hit. The text is fetched fresh
+from the source on every call and is never written to disk or cached.
+.SH SOURCES
+azlyrics.com and genius.com (English), versuri.ro and versuri.us (Romanian),
+lyricshare.net (Russian), tekstowo.pl (Polish), letras.mus.br (Portuguese),
+sarkisozum.gen.tr (Turkish), klyrics.net (Korean), paroles.net (French),
+angolotesti.it (Italian), letras.com (Spanish), and soundcloud.com track
+descriptions.
+.SH OPTIONS
+.TP
+.BR \-V ", " \-\-version
+Print version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print usage and exit.
+.SH ENVIRONMENT
+.TP
+.B RUST_LOG
+Tracing filter, for example
+.BR RUST_LOG=debug .
+Log output goes to standard error so it cannot corrupt the JSON-RPC stream on
+standard output.
+.SH EXAMPLES
+Register with Claude Code for the current project:
+.PP
+.RS
+.EX
+claude mcp add getlyricsmcp \-\- getlyricsmcp
+.EE
+.RE
+.PP
+Register globally:
+.PP
+.RS
+.EX
+claude mcp add \-s user getlyricsmcp \-\- getlyricsmcp
+.EE
+.RE
+.SH NOTES
+Lyrics are copyrighted, and the sites this reads have their own terms of service
+and robots.txt. Checking the terms of any source you point it at is the operator's
+responsibility. Sources are one row of data each in
+.IR src/sites/spec.rs ;
+deleting a row removes the source.
+.SH AUTHOR
+Zmole Cristian
+.SH SEE ALSO
+Project page:
+.UR https://github.com/ZmoleCristian/getlyricsmcp
+.UE
